@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FAHIM | TERMINUS COMMAND</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Hind+Siliguri:wght@400;700&display=swap');
+        :root { --danger: #ff0000; --ui-bg: rgba(0, 5, 10, 0.95); --fahim-glow: 0 0 20px #ff0000; }
+        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: #fff; font-family: 'Hind Siliguri', sans-serif; overflow: hidden; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+
+        /* User Highlight */
+        .user-tag { position: fixed; top: 15px; left: 15px; z-index: 1000; background: rgba(255,0,0,0.1); padding: 5px 15px; border: 1px solid var(--danger); border-radius: 20px; box-shadow: var(--fahim-glow); }
+        .user-tag span { font-family: 'Orbitron'; font-weight: 900; color: #fff; letter-spacing: 2px; }
+
+        /* Missile Animation */
+        .missile { position: absolute; width: 4px; height: 20px; background: #fff; border-radius: 50% 50% 0 0; z-index: 5000; pointer-events: none; box-shadow: 0 5px 15px rgba(255,255,255,0.8); }
+        .trail { position: absolute; width: 2px; background: linear-gradient(to top, transparent, #ff0000); z-index: 4999; pointer-events: none; opacity: 0.6; }
+
+        /* General UI */
+        .mobile-header { position: fixed; top: 0; left: 0; right: 0; background: var(--ui-bg); padding: 10px; z-index: 100; border-bottom: 1px solid var(--danger); text-align: center; }
+        .mobile-header h1 { font-family: 'Orbitron'; font-size: 1rem; margin: 0; color: var(--danger); letter-spacing: 3px; }
+        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: var(--ui-bg); z-index: 100; padding: 15px; border-top: 1px solid #333; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .stat-card { background: rgba(255,255,255,0.03); padding: 6px; border-left: 2px solid var(--danger); }
+        .stat-val { font-size: 14px; font-weight: bold; }
+        .btn-strike { width: 100%; padding: 15px; background: var(--danger); color: #fff; border: none; font-weight: bold; font-size: 1.1rem; border-radius: 5px; cursor: pointer; font-family: 'Hind Siliguri'; box-shadow: var(--fahim-glow); }
+        .flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 9999; }
+        #cd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; z-index: 9000; align-items: center; justify-content: center; font-family: 'Orbitron'; font-size: 8rem; color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<div class="user-tag">COMMANDER: <span>FAHIM</span></div>
+<div id="cd-overlay">5</div>
+<div class="flash" id="flash"></div>
+
+<div class="mobile-header">
+    <h1>TERMINUS X STRATEGIC</h1>
+</div>
+
+<div id="map"></div>
+
+<div class="bottom-panel">
+    <div class="stats-grid">
+        <div class="stat-card"><span style="font-size:10px; color:#888;">হতাহত:</span><div id="d-death" class="stat-val">০</div></div>
+        <div class="stat-card"><span style="font-size:10px; color:#888;">রেডিয়েশন:</span><div id="d-rad" class="stat-val">০.০২</div></div>
+    </div>
+    <button class="btn-strike" id="launch-btn" onclick="startSequence()">মিসাইল লঞ্চ করুন</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([23.6850, 90.3563], 6);
+    L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
+
+    let target = null, marker = null;
+
+    map.on('click', (e) => {
+        target = e.latlng;
+        if(marker) map.removeLayer(marker);
+        marker = L.circleMarker(target, { radius: 10, color: 'red', weight: 2, fillOpacity: 0.4 }).addTo(map);
+    });
+
+    function startSequence() {
+        if(!target) return alert("ম্যাপে টার্গেট সিলেক্ট করুন, FAHIM!");
+        document.getElementById('launch-btn').disabled = true;
+        let count = 5;
+        const overlay = document.getElementById('cd-overlay');
+        overlay.style.display = 'flex';
+        
+        const timer = setInterval(() => {
+            count--;
+            overlay.innerText = count;
+            if(count <= 0) {
+                clearInterval(timer);
+                overlay.style.display = 'none';
+                animateMissile();
+            }
+        }, 1000);
+    }
+
+    function animateMissile() {
+        const startPoint = { x: window.innerWidth / 2, y: -50 };
+        const endPoint = map.latLngToContainerPoint(target);
+        
+        const missile = document.createElement('div');
+        missile.className = 'missile';
+        document.body.appendChild(missile);
+
+        let progress = 0;
+        const duration = 1500; // 1.5 seconds
+        const startTime = performance.now();
+
+        function step(now) {
+            progress = (now - startTime) / duration;
+            if (progress < 1) {
+                const currentX = startPoint.x + (endPoint.x - startPoint.x) * progress;
+                const currentY = startPoint.y + (endPoint.y - startPoint.y) * progress;
+                missile.style.left = currentX + 'px';
+                missile.style.top = currentY + 'px';
+                missile.style.transform = `rotate(${Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x) * 180 / Math.PI + 90}deg)`;
+                requestAnimationFrame(step);
+            } else {
+                missile.remove();
+                detonate();
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    function detonate() {
+        document.getElementById('flash').style.opacity = '1';
+        setTimeout(() => document.getElementById('flash').style.opacity = '0', 300);
+
+        L.circle(target, { radius: 12000, color: 'orange', fillColor: 'red', fillOpacity: 0.6 }).addTo(map);
+        animateVal('d-death', 2500000);
+        
+        let r = 0.02;
+        setInterval(() => {
+            r += Math.random() * 50;
+            document.getElementById('d-rad').innerText = r.toFixed(1) + " mSv";
+        }, 200);
+        
+        map.flyTo(target, 11);
+    }
+
+    function animateVal(id, end) {
+        let cur = 0;
+        const obj = document.getElementById(id);
+        const t = setInterval(() => {
+            cur += end/30;
+            if(cur >= end) { obj.innerText = end.toLocaleString('bn-BD'); clearInterval(t); }
+            else obj.innerText = Math.floor(cur).toLocaleString('bn-BD');
+        }, 40);
+    }
+</script>
+</body>
+</html>
